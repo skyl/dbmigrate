@@ -74,13 +74,17 @@ class DBMigrate(object):
     def migrate(self, *args):
         """migrate a database to the current schema"""
         if not self.dry_run:
+            print "Not dry run"
             try:
+                print "create migration table ..."
                 self.engine.create_migration_table()
             except dbengines.SQLException:
+                print "migration table already created"
                 # migration table has already been created
                 pass
         try:
             performed_migrations = self.engine.performed_migrations()
+            print "performed_migrations=", performed_migrations
         except dbengines.SQLException as e:
             if self.dry_run:
                 # corner case - dry run on a database without a migration table
@@ -89,12 +93,15 @@ class DBMigrate(object):
                 raise e
 
         current_migrations = self.current_migrations()
+        print "current_migrations", current_migrations
         files_current = [x.filename for x in current_migrations]
         files_performed = [x.filename for x in performed_migrations]
         files_sha1s_to_run = (
             set(current_migrations) - set(performed_migrations))
         files_to_run = [x.filename for x in files_sha1s_to_run]
+        print "files_to_run", files_to_run
         if len(files_performed):
+            print "performed=", files_performed
             latest_migration = max(files_performed)
             old_unrun_migrations = list(filter(
                 lambda f: f < latest_migration, files_to_run))
@@ -107,6 +114,7 @@ class DBMigrate(object):
                         '[%s] older than the latest performed migration' %
                         ','.join(old_unrun_migrations))
         modified_migrations = set(files_to_run).intersection(files_performed)
+        print "modified_migrations", modified_migrations
         if modified_migrations:
             raise ModifiedMigrationException(
                 '[%s] migrations were modified since they were '
@@ -114,10 +122,12 @@ class DBMigrate(object):
         deleted_migrations = (
             set(files_performed + files_to_run) - set(files_current))
         if deleted_migrations:
+            print "deleted_migrations", deleted_migrations
             raise ModifiedMigrationException(
                 '[%s] migrations were deleted since they were '
                 'run on this database.' % ','.join(deleted_migrations))
         command_sql = self.engine.sql(self.directory, files_sha1s_to_run)
+        #print "command_sql", command_sql
         if self.dry_run:
             response = []
             for command, sql in command_sql:
@@ -129,8 +139,11 @@ class DBMigrate(object):
         else:
             for command, sql in command_sql:
                 if command:
+                    print "command=", command
                     subprocess.check_call(command)
                 if sql:
+                    print "running sql on engine", self.engine
+                    print "sql=", sql
                     self.engine.execute(sql)
 
     @command
