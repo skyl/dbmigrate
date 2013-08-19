@@ -26,7 +26,7 @@ FilenameSha1 = collections.namedtuple('FilenameSha1', 'filename sha1')
 class DatabaseMigrationEngine(object):
     migration_table_sql = (
         "CREATE TABLE dbmigration "
-        "(filename varchar(255), sha1 varchar(40), date datetime);")
+        "(filename varchar(255), sha1 varchar(40), timestamp datetime);")
 
     def create_migration_table(self):
         self.execute(self.migration_table_sql)
@@ -43,8 +43,8 @@ class DatabaseMigrationEngine(object):
             else:
                 command = os.path.join(directory, filename)
             sql_statements.append(
-                "INSERT INTO dbmigration (filename, sha1, date) "
-                "VALUES ('%s', '%s', %s());" %
+                "INSERT INTO dbmigration (filename, sha1, timestamp) "
+                "VALUES ('%s', '%s', %s);" %
                 (filename, sha1, self.date_func))
             yield command, "\n".join(sql_statements)
 
@@ -55,7 +55,7 @@ class DatabaseMigrationEngine(object):
 
 class sqlite(DatabaseMigrationEngine):
     """a migration engine for sqlite"""
-    date_func = 'datetime'
+    date_func = 'datetime()'
 
     def __init__(self, connection_string):
         self.connection = sqlite3.connect(connection_string)
@@ -75,7 +75,7 @@ class sqlite(DatabaseMigrationEngine):
 
 class GenericEngine(DatabaseMigrationEngine):
     """a generic database engine"""
-    date_func = 'now'
+    date_func = 'now()'
 
     def __init__(self, connection_string):
         self.connection = self.engine.connect(
@@ -111,7 +111,7 @@ class postgres(GenericEngine):
 
     migration_table_sql = (
         "CREATE TABLE dbmigration "
-        "(filename varchar(255), sha1 varchar(40), date timestamp);")
+        "(filename varchar(255), sha1 varchar(40), timestamp timestamp);")
 
     def __init__(self, connection_string):
         import psycopg2
@@ -129,5 +129,34 @@ class postgres(GenericEngine):
             self.connection.commit()
             return c
         except (self.ProgrammingError, self.OperationalError) as e:
+            self.connection.rollback()
+            raise SQLException(str(e))
+
+
+class oracle(GenericEngine):
+    """a migration engine for oracle"""
+
+    migration_table_sql = (
+        "CREATE TABLE DBMIGRATION "
+        "(filename VARCHAR(255), sha1 VARCHAR(40), timestamp timestamp);"
+    )
+    date_func = "to_char(sysdate, 'DD-MM-YYYY HH24:MI:SS')"
+
+    def __init__(self, connection_string):
+        print connection_string
+        import cx_Oracle
+        self.engine = cx_Oracle
+        self.connection = self.engine.connect(connection_string)
+        self.ProgrammingError = self.engine.ProgrammingError
+        self.OperationalError = self.engine.OperationalError
+
+    def execute(self, statement):
+        print "execute method"
+        print statement
+        try:
+            c = self.connection.cursor()
+            c.execute(statement)
+            return c
+        except self.engine.DatabaseError as e:
             self.connection.rollback()
             raise SQLException(str(e))

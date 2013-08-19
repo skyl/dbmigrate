@@ -51,7 +51,7 @@ class DBMigrate(object):
 
     @command
     def renamed(self, *args):
-        """rename files in the migration table if the order changed"""
+        print "rename files in the migration table if the order changed"
         performed_migrations = dict(
             (v, k) for k, v in self.engine.performed_migrations())
         current_migrations = dict(
@@ -83,11 +83,12 @@ class DBMigrate(object):
                 # migration table has already been created
                 pass
         try:
+            print "checking for performed migrations"
             performed_migrations = self.engine.performed_migrations()
             print "performed_migrations=", performed_migrations
         except dbengines.SQLException as e:
             if self.dry_run:
-                # corner case - dry run on a database without a migration table
+                print "dry run on database without migration table"
                 performed_migrations = []
             else:
                 raise e

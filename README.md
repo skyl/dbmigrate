@@ -29,7 +29,7 @@ Usage
 Examples
 --------
 
-If these commands are run without --dry-run they will perform the specified actions.
+If these commands are run without --dry-run (-n) they will perform the specified actions.
 
      % mariposa --dry-run create test
     Would create ./20120116095350-test.sql
@@ -46,6 +46,8 @@ If these commands are run without --dry-run they will perform the specified acti
       password_sha1 varchar(40)
     );
     INSERT INTO dbmigration (filename, sha1, date) VALUES ('20120115075349-create-user-table.sql', '0187aa5e13e268fc621c894a7ac4345579cf50b7', datetime());
+
+     % mariposa migrate -c "UserName/Password@DatabaseName" -d . -e oracle -n
 
 
 Behavior
