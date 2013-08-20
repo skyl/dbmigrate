@@ -26,7 +26,7 @@ FilenameSha1 = collections.namedtuple('FilenameSha1', 'filename sha1')
 class DatabaseMigrationEngine(object):
     migration_table_sql = (
         "CREATE TABLE dbmigration "
-        "(filename varchar(255), sha1 varchar(40), timestamp datetime);")
+        "(filename varchar(255), sha1 varchar(40), executed_dt datetime);")
 
     def create_migration_table(self):
         self.execute(self.migration_table_sql)
@@ -43,7 +43,7 @@ class DatabaseMigrationEngine(object):
             else:
                 command = os.path.join(directory, filename)
             sql_statements.append(
-                "INSERT INTO dbmigration (filename, sha1, timestamp) "
+                "INSERT INTO dbmigration (filename, sha1, executed_dt) "
                 "VALUES ('%s', '%s', %s);" %
                 (filename, sha1, self.date_func))
             yield command, "\n".join(sql_statements)
@@ -111,7 +111,7 @@ class postgres(GenericEngine):
 
     migration_table_sql = (
         "CREATE TABLE dbmigration "
-        "(filename varchar(255), sha1 varchar(40), timestamp timestamp);")
+        "(filename varchar(255), sha1 varchar(40), executed_dt timestamp);")
 
     def __init__(self, connection_string):
         import psycopg2
@@ -138,25 +138,44 @@ class oracle(GenericEngine):
 
     migration_table_sql = (
         "CREATE TABLE DBMIGRATION "
-        "(filename VARCHAR(255), sha1 VARCHAR(40), timestamp timestamp);"
+        "(filename VARCHAR(255), sha1 VARCHAR(40), executed_dt timestamp)"
     )
-    date_func = "to_char(sysdate, 'DD-MM-YYYY HH24:MI:SS')"
+    date_func = "sysdate"
 
     def __init__(self, connection_string):
         print connection_string
         import cx_Oracle
         self.engine = cx_Oracle
+        self.connection_string = connection_string
         self.connection = self.engine.connect(connection_string)
         self.ProgrammingError = self.engine.ProgrammingError
         self.OperationalError = self.engine.OperationalError
 
-    def execute(self, statement):
-        print "execute method"
-        print statement
-        try:
-            c = self.connection.cursor()
-            c.execute(statement)
-            return c
-        except self.engine.DatabaseError as e:
-            self.connection.rollback()
-            raise SQLException(str(e))
+    def execute(self, sql):
+        import sys
+        from subprocess import Popen, PIPE
+        c = self.connection.cursor()
+        if ';' not in sql:
+            print "executing SINGLE STATEMENT"
+            print sql
+            try:
+                c.execute(sql)
+                self.connection.commit()
+                print "COMMIT COMPLETE"
+            except self.engine.DatabaseError as e:
+                self.connection.rollback()
+                raise SQLException(str(e))
+        # cx_Oracle is degenerate; sqlplus is better way to run a "script"
+        else:
+            print "executing SCRIPT"
+            print sql
+            sqlplus = Popen(['sqlplus','-S', self.connection_string],
+                            stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            sqlplus.stdin.write(sql)
+            out, err = sqlplus.communicate()
+            print "RESULTS:"
+            sys.stdout.write(out)
+            sys.stderr.write(err)
+            if "ERROR" in out:
+                raise SQLException(out)
+        return c

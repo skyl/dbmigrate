@@ -25,11 +25,12 @@ class ModifiedMigrationException(Exception):
 class DBMigrate(object):
     """A set of commands to safely migrate databases automatically"""
     def __init__(self, out_of_order, dry_run, engine, connection_string,
-                 directory):
+                 directory, nocreate=False):
         self.out_of_order = out_of_order
         self.dry_run = dry_run
         self.engine = getattr(dbengines, engine)(connection_string)
         self.directory = directory
+        self.nocreate = nocreate
 
     def blobsha1(self, filename):
         """returns the git sha1sum of a file so the exact migration
@@ -73,22 +74,20 @@ class DBMigrate(object):
     @command
     def migrate(self, *args):
         """migrate a database to the current schema"""
-        if not self.dry_run:
-            print "Not dry run"
+        if not self.dry_run and not self.nocreate:
             try:
                 print "create migration table ..."
                 self.engine.create_migration_table()
             except dbengines.SQLException:
                 print "migration table already created"
-                # migration table has already been created
                 pass
         try:
             print "checking for performed migrations"
             performed_migrations = self.engine.performed_migrations()
             print "performed_migrations=", performed_migrations
         except dbengines.SQLException as e:
-            if self.dry_run:
-                print "dry run on database without migration table"
+            if self.dry_run or self.nocreate:
+                print "no create or dry run - no performed migrations"
                 performed_migrations = []
             else:
                 raise e
@@ -140,11 +139,10 @@ class DBMigrate(object):
         else:
             for command, sql in command_sql:
                 if command:
-                    print "command=", command
+                    print "running command=", command
                     subprocess.check_call(command)
                 if sql:
                     print "running sql on engine", self.engine
-                    print "sql=", sql
                     self.engine.execute(sql)
 
     @command
@@ -190,9 +188,13 @@ def main():
         help="directory where the migrations are stored",
         type="string",
         default=".")
+    parser.add_option(
+        "-x", "--nocreate", dest="nocreate", action="store_true",
+        help="do not try to create the dbmigration table",
+        default=False)
 
     (options, args) = parser.parse_args()
-
+    print options, args
     if not len(args):
         parser.print_help()
     else:

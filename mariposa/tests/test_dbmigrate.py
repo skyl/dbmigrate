@@ -91,7 +91,7 @@ class TestDBMigrate(unittest.TestCase):
             "  name varchar(255),\n"
             "  password_sha1 varchar(40)\n"
             ");\n"
-            "INSERT INTO dbmigration (filename, sha1, timestamp) VALUES ("
+            "INSERT INTO dbmigration (filename, sha1, executed_dt) VALUES ("
             "'20120115075349-create-user-table.sql', "
             "'0187aa5e13e268fc621c894a7ac4345579cf50b7', %s);" %
             mariposa.engine.date_func))
@@ -111,14 +111,14 @@ class TestDBMigrate(unittest.TestCase):
             "  name varchar(255),\n"
             "  password_sha1 varchar(40)\n"
             ");\n"
-            "INSERT INTO dbmigration (filename, sha1, timestamp) VALUES ("
+            "INSERT INTO dbmigration (filename, sha1, executed_dt) VALUES ("
             "'20120115075349-create-user-table.sql', "
             "'0187aa5e13e268fc621c894a7ac4345579cf50b7', "
             "%(date_func)s);\n"
             "sql: -- start filename: 20120603133552-awesome.sql sha1: "
             "6759512e1e29b60a82b4a5587c5ea18e06b7d381\n"
             "ALTER TABLE users ADD COLUMN email varchar(70);\n"
-            "INSERT INTO dbmigration (filename, sha1, timestamp) VALUES ("
+            "INSERT INTO dbmigration (filename, sha1, executed_dt) VALUES ("
             "'20120603133552-awesome.sql', "
             "'6759512e1e29b60a82b4a5587c5ea18e06b7d381', %(date_func)s);" %
             {'date_func': mariposa.engine.date_func}))
